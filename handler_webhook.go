@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -22,6 +23,7 @@ type Config struct {
 	RepoURL      string
 	TargetRef    string
 	TargetBranch string
+	ServePort    int
 }
 
 var cfg = mustLoadConfig()
@@ -61,12 +63,20 @@ func mustLoadConfig() Config {
 		targetBranch = "gh-pages"
 	}
 
+	servePort := 8080 // default port
+	if portStr := os.Getenv("SERVE_PORT"); portStr != "" {
+		if port, err := strconv.Atoi(portStr); err == nil {
+			servePort = port
+		}
+	}
+
 	return Config{
 		Secret:       secret,
 		RepoDir:      repoDir,
 		RepoURL:      repoURL,
 		TargetRef:    targetRef,
 		TargetBranch: targetBranch,
+		ServePort:    servePort,
 	}
 }
 
