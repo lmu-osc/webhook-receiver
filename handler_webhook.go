@@ -6,13 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
+	"sync"
 
 	"github.com/joho/godotenv"
 )
@@ -27,6 +27,13 @@ type Config struct {
 }
 
 var cfg = mustLoadConfig()
+
+// 🔒 concurrency control
+var (
+	mu      sync.Mutex
+	running = false
+	pending = false
+)
 
 type Payload struct {
 	Ref string `json:"ref"`
@@ -63,7 +70,7 @@ func mustLoadConfig() Config {
 		targetBranch = "gh-pages"
 	}
 
-	servePort := 8080 // default port
+	servePort := 8080
 	if portStr := os.Getenv("SERVE_PORT"); portStr != "" {
 		if port, err := strconv.Atoi(portStr); err == nil {
 			servePort = port
@@ -100,19 +107,13 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if payload.Ref == cfg.TargetRef {
-		fmt.Println("gh-pages updated!")
+		log.Println("Received gh-pages update webhook")
 
-		if err := ensureRepo(); err != nil {
-			log.Println("Clone failed:", err)
-			return
-		}
-
-		if err := updateRepo(); err != nil {
-			log.Println("Pull failed:", err)
-			return
-		}
+		// 🚀 trigger async update (non-blocking)
+		triggerUpdate()
 	}
 
+	// ✅ respond immediately to GitHub
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -125,19 +126,61 @@ func verifySignature(body []byte, signature string) bool {
 
 func ensureRepo() error {
 	if _, err := os.Stat(cfg.RepoDir); os.IsNotExist(err) {
-		fmt.Println("Cloning repo...")
+		log.Println("Cloning repo...")
 		cmd := exec.Command("git", "clone", "--branch", cfg.TargetBranch, cfg.RepoURL, cfg.RepoDir)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+		cmd.Stdout = log.Writer()
+		cmd.Stderr = log.Writer()
 		return cmd.Run()
 	}
 	return nil
 }
 
 func updateRepo() error {
-	fmt.Println("Pulling latest changes...")
+	log.Println("Pulling latest changes...")
 	cmd := exec.Command("git", "-C", cfg.RepoDir, "pull", "origin", cfg.TargetBranch)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
 	return cmd.Run()
+}
+
+// 🔁 runs one update cycle
+func runUpdate() {
+	if err := ensureRepo(); err != nil {
+		log.Println("Clone failed:", err)
+		return
+	}
+
+	if err := updateRepo(); err != nil {
+		log.Println("Pull failed:", err)
+		return
+	}
+
+	log.Println("Update complete")
+}
+
+// 🧠 smart scheduler (no overlap + coalescing)
+func triggerUpdate() {
+	mu.Lock()
+	if running {
+		pending = true
+		mu.Unlock()
+		return
+	}
+	running = true
+	mu.Unlock()
+
+	go func() {
+		for {
+			runUpdate()
+
+			mu.Lock()
+			if !pending {
+				running = false
+				mu.Unlock()
+				return
+			}
+			pending = false
+			mu.Unlock()
+		}
+	}()
 }
