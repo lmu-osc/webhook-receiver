@@ -1,0 +1,14 @@
+services:
+  webhook-receiver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: webhook-receiver:local
+    container_name: webhook-receiver
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${SERVE_PORT:-8080}:${SERVE_PORT:-8080}"
+    volumes:
+      - ./repo:/app/repo
