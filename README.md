@@ -162,6 +162,8 @@ If you do not use Nginx, you can change the Compose port mapping back to a publi
 
 This avoids common host permission issues from bind mounts while still persisting pulled data across rebuilds/restarts.
 
+At startup, the container fixes ownership of `/app/repo` and then runs the app as a non-root user.
+
 Inspect files inside the container:
 
 ```bash
