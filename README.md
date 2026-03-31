@@ -155,12 +155,17 @@ If you do not use Nginx, you can change the Compose port mapping back to a publi
 
 ## Data persistence
 
-`docker-compose.yml` uses a Docker named volume:
+`docker-compose.yml` mounts a required host path into `/app/repo`.
 
-- Volume: `repo_data`
-- Container path: `/app/repo`
+Set this in `.env`:
 
-This avoids common host permission issues from bind mounts while still persisting pulled data across rebuilds/restarts.
+```dotenv
+REPO_STORAGE=/var/www/your-site
+```
+
+Then point your Nginx site root to the same path (`/var/www/your-site`).
+
+With this set, Compose mounts that host path at `/app/repo` and the webhook receiver updates files there.
 
 At startup, the container fixes ownership of `/app/repo` and then runs the app as a non-root user.
 
@@ -170,13 +175,11 @@ Inspect files inside the container:
 docker compose exec webhook-receiver ls -la /app/repo
 ```
 
-Inspect the volume on the host via a temporary container:
+Inspect the same files on the host:
 
 ```bash
-docker run --rm -v webhook-receiver_repo_data:/data alpine:3.22 ls -la /data
+sudo ls -la /var/www/your-site
 ```
-
-If you previously used `./repo:/app/repo`, migrate old data manually if needed.
 
 ## How updates are processed
 
