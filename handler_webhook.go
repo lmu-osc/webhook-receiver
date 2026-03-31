@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"sync"
 
@@ -125,14 +127,35 @@ func verifySignature(body []byte, signature string) bool {
 }
 
 func ensureRepo() error {
-	if _, err := os.Stat(cfg.RepoDir); os.IsNotExist(err) {
-		log.Println("Cloning repo...")
-		cmd := exec.Command("git", "clone", "--branch", cfg.TargetBranch, cfg.RepoURL, cfg.RepoDir)
-		cmd.Stdout = log.Writer()
-		cmd.Stderr = log.Writer()
-		return cmd.Run()
+	gitDir := filepath.Join(cfg.RepoDir, ".git")
+	if _, err := os.Stat(gitDir); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
 	}
-	return nil
+
+	if _, err := os.Stat(cfg.RepoDir); err == nil {
+		entries, readErr := os.ReadDir(cfg.RepoDir)
+		if readErr != nil {
+			return readErr
+		}
+
+		if len(entries) > 0 {
+			return fmt.Errorf("%s exists but is not a git repo (.git missing); clean this directory or set REPO_DIR to an empty path", cfg.RepoDir)
+		}
+	} else if os.IsNotExist(err) {
+		if mkErr := os.MkdirAll(cfg.RepoDir, 0o755); mkErr != nil {
+			return mkErr
+		}
+	} else {
+		return err
+	}
+
+	log.Println("Cloning repo...")
+	cmd := exec.Command("git", "clone", "--branch", cfg.TargetBranch, cfg.RepoURL, cfg.RepoDir)
+	cmd.Stdout = log.Writer()
+	cmd.Stderr = log.Writer()
+	return cmd.Run()
 }
 
 func updateRepo() error {
