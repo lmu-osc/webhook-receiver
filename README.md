@@ -155,12 +155,26 @@ If you do not use Nginx, you can change the Compose port mapping back to a publi
 
 ## Data persistence
 
-`docker-compose.yml` bind-mounts:
+`docker-compose.yml` uses a Docker named volume:
 
-- Host: `./repo`
-- Container: `/app/repo`
+- Volume: `repo_data`
+- Container path: `/app/repo`
 
-This means pulled repository data persists across container rebuilds/restarts.
+This avoids common host permission issues from bind mounts while still persisting pulled data across rebuilds/restarts.
+
+Inspect files inside the container:
+
+```bash
+docker compose exec webhook-receiver ls -la /app/repo
+```
+
+Inspect the volume on the host via a temporary container:
+
+```bash
+docker run --rm -v webhook-receiver_repo_data:/data alpine:3.22 ls -la /data
+```
+
+If you previously used `./repo:/app/repo`, migrate old data manually if needed.
 
 ## How updates are processed
 
@@ -182,7 +196,7 @@ Useful commands:
 ```bash
 docker compose logs --tail=200 webhook-receiver
 docker compose exec webhook-receiver env | grep -E 'REPO_|TARGET_|SERVE_PORT'
-ls -la repo
+docker compose exec webhook-receiver ls -la /app/repo
 ```
 
 ## Updating the service
