@@ -4,11 +4,11 @@ services:
       context: .
       dockerfile: Dockerfile
     image: webhook-receiver:local
-    container_name: webhook-receiver
+    container_name: webhook-receiver # remove this line if you don't want a fixed container name--limits to one instance of the service
     restart: unless-stopped
     env_file:
       - .env
     ports:
-      - "${SERVE_PORT:-8080}:${SERVE_PORT:-8080}"
+      - "127.0.0.1:${SERVE_PORT:-8080}:${SERVE_PORT:-8080}" # bind to localhost only for security i.e. via a proxy; change if you need external access
     volumes:
       - ./repo:/app/repo
