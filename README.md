@@ -6,7 +6,7 @@ This repo is set up to run well on a Debian server using Docker and Docker Compo
 
 ## What it does
 
-- Exposes `POST /webhook`
+- Exposes `POST /lmu-osc-site`
 - Verifies `X-Hub-Signature-256` with `WEBHOOK_SECRET`
 - Only reacts to `push` events for `TARGET_REF`
 - Clones the configured repo on first event
@@ -93,7 +93,7 @@ docker compose down
 docker compose up -d
 ```
 
-### 5. Route `/webhook` through Nginx on 443
+### 5. Route `/lmu-osc-site` through Nginx on 443
 
 The Compose file binds the app port to `127.0.0.1` only, so it is reachable from Nginx on the same host but not directly from the internet.
 
@@ -107,8 +107,8 @@ server {
 	ssl_certificate /etc/letsencrypt/live/webhook.example.com/fullchain.pem;
 	ssl_certificate_key /etc/letsencrypt/live/webhook.example.com/privkey.pem;
 
-	location = /webhook {
-		proxy_pass http://127.0.0.1:8080/webhook;
+	location = /lmu-osc-site {
+		proxy_pass http://127.0.0.1:8080/lmu-osc-site;
 		proxy_http_version 1.1;
 		proxy_set_header Host $host;
 		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -135,7 +135,7 @@ sudo systemctl reload nginx
 In your source repository (the one that sends events):
 
 1. Go to Settings -> Webhooks -> Add webhook
-2. Payload URL: `https://YOUR_DOMAIN/webhook`
+2. Payload URL: `https://YOUR_DOMAIN/lmu-osc-site`
 3. Content type: `application/json`
 4. Secret: same value as `WEBHOOK_SECRET`
 5. Choose event type: `Just the push event`
