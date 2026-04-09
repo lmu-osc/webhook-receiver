@@ -97,7 +97,9 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("X-GitHub-Event") != "push" {
+	eventType := r.Header.Get("X-GitHub-Event")
+	if eventType != "push" {
+		log.Printf("Webhook received and ignored: event=%s (only push is handled)", eventType)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -108,12 +110,16 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.Ref == cfg.TargetRef {
-		log.Println("Received gh-pages update webhook")
-
-		// 🚀 trigger async update (non-blocking)
-		triggerUpdate()
+	if payload.Ref != cfg.TargetRef {
+		log.Printf("Webhook received and ignored: ref=%s (target ref=%s)", payload.Ref, cfg.TargetRef)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
+
+	log.Println("Received matching push webhook; triggering repository update")
+
+	// 🚀 trigger async update (non-blocking)
+	triggerUpdate()
 
 	// ✅ respond immediately to GitHub
 	w.WriteHeader(http.StatusOK)
