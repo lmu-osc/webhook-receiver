@@ -10,7 +10,7 @@ This repo is set up to run well on a Debian server using Docker and Docker Compo
 - Verifies `X-Hub-Signature-256` with `WEBHOOK_SECRET`
 - Only reacts to `push` events for `TARGET_REF`
 - Clones the configured repo on first event
-- Runs `git pull` on subsequent matching events
+- Fetches the remote branch, hard-resets to it, and removes untracked files on subsequent matching events
 - Coalesces overlapping webhook events so updates do not run in parallel
 
 ## Project files
@@ -186,7 +186,7 @@ sudo ls -la /var/www/your-site
 - Matching webhook arrives (`push` + `TARGET_REF`)
 - Service verifies HMAC signature
 - If local repo does not exist: `git clone --branch TARGET_BRANCH`
-- Then: `git -C REPO_DIR pull origin TARGET_BRANCH`
+- Then: `git -C REPO_DIR fetch --prune origin TARGET_BRANCH && git -C REPO_DIR reset --hard FETCH_HEAD && git -C REPO_DIR clean -fd`
 - Concurrent events are coalesced into one additional run
 
 ## Troubleshooting

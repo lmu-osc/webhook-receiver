@@ -164,12 +164,26 @@ func ensureRepo() error {
 	return cmd.Run()
 }
 
-func updateRepo() error {
-	log.Println("Pulling latest changes...")
-	cmd := exec.Command("git", "-C", cfg.RepoDir, "pull", "origin", cfg.TargetBranch)
+func runGit(args ...string) error {
+	cmd := exec.Command("git", args...)
 	cmd.Stdout = log.Writer()
 	cmd.Stderr = log.Writer()
 	return cmd.Run()
+}
+
+func updateRepo() error {
+	log.Println("Fetching latest changes...")
+	if err := runGit("-C", cfg.RepoDir, "fetch", "--prune", "origin", cfg.TargetBranch); err != nil {
+		return err
+	}
+
+	log.Println("Resetting working tree to remote branch...")
+	if err := runGit("-C", cfg.RepoDir, "reset", "--hard", "FETCH_HEAD"); err != nil {
+		return err
+	}
+
+	log.Println("Removing untracked files...")
+	return runGit("-C", cfg.RepoDir, "clean", "-fd")
 }
 
 // 🔁 runs one update cycle
